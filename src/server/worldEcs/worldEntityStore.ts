@@ -1,27 +1,21 @@
 import { CollectionService, RunService } from "@rbxts/services";
-import { ECSSystem } from "@rbxts/ecs";
 import { MotionAttributes, REPLICATED_MOTION_TAG } from "shared/serverAuthorityReplicatedMotion";
-import {
-	MoveToPoint,
-	PathFollower,
-	PlayerBoat,
-	Velocity,
-	WorldModel,
-} from "server/worldEcs/components";
+import { createPlayerBoatEntities } from "server/worldEcs/factories/playerBoatFactory";
+import { getEcs } from "server/worldEcs/ecs";
 import { MoveToPointSystem } from "server/worldEcs/systems/MoveToPointSystem";
 import { PathFollowSystem } from "server/worldEcs/systems/PathFollowSystem";
+import { InteractableSystem } from "server/worldEcs/systems/InteractableSystem";
+import { FireRequestSystem } from "server/worldEcs/systems/FireRequestSystem";
+import { ProjectileSystem } from "server/worldEcs/systems/ProjectileSystem";
+import { HealthSystem } from "server/worldEcs/systems/HealthSystem";
 import {
 	MAP_MODEL_NAME,
-	PLAYER_ARRIVE_DISTANCE,
 	PLAYER_BOAT_MODEL_NAME,
-	PLAYER_BOAT_ROTATION_SPEED,
-	PLAYER_BOAT_SPEED,
 	WAYPOINT_NAMES,
 } from "server/worldEcs/utils/constants";
 import {
 	anchorModel,
 	cloneTemplateModel,
-	getModelRadius,
 	getWaypoints,
 	replaceWorkspaceModel,
 } from "server/worldEcs/utils/modelUtils";
@@ -49,8 +43,6 @@ export function startWorldEntityStore(): void {
 	const start = waypoints[0];
 	const facing = horizontalUnitOr(waypoints[1].sub(start), DEFAULT_FACING);
 	const startPivot = CFrame.lookAt(start, start.add(facing));
-	const ecsSystem = new ECSSystem();
-	const playerRadius = getModelRadius(playerBoat);
 
 	playerBoat.PivotTo(startPivot);
 	playerBoat.SetAttribute(MotionAttributes.Velocity, new Vector3(0, 0, 0));
@@ -59,48 +51,15 @@ export function startWorldEntityStore(): void {
 	playerBoat.SetAttribute(MotionAttributes.CarriesCharacters, true);
 	CollectionService.AddTag(playerBoat, REPLICATED_MOTION_TAG);
 
-	ecsSystem.createEntity([
-		{
-			type: Velocity,
-			data: {
-				value: new Vector3(0, 0, 0),
-			},
-		},
-		{
-			type: WorldModel,
-			data: {
-				model: playerBoat,
-				radius: playerRadius,
-			},
-		},
-		{
-			type: MoveToPoint,
-			data: {
-				target: waypoints[1],
-				speed: PLAYER_BOAT_SPEED,
-				rotationSpeed: PLAYER_BOAT_ROTATION_SPEED,
-				arriveDistance: PLAYER_ARRIVE_DISTANCE,
-				reached: false,
-			},
-		},
-		{
-			type: PathFollower,
-			data: {
-				waypoints,
-				targetIndex: 1,
-				finished: false,
-			},
-		},
-		{
-			type: PlayerBoat,
-			data: {
-				isPlayerBoat: true,
-			},
-		},
-	]);
+	createPlayerBoatEntities(playerBoat, waypoints);
 
+	const ecsSystem = getEcs();
 	ecsSystem.registerSystem(new PathFollowSystem());
 	ecsSystem.registerSystem(new MoveToPointSystem());
+	ecsSystem.registerSystem(new InteractableSystem());
+	ecsSystem.registerSystem(new FireRequestSystem());
+	ecsSystem.registerSystem(new ProjectileSystem());
+	ecsSystem.registerSystem(new HealthSystem());
 
 	RunService.Heartbeat.Connect((dt) => {
 		ecsSystem.tick(dt);
