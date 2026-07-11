@@ -13,3 +13,4 @@ export * from "./Mounting";
 export * from "./FireRequest";
 export * from "./Projectile";
 export * from "./PlayerRef";
+export * from "./ShootAtPlayerVessel";
