@@ -1,5 +1,6 @@
 import { Query, type ArchetypeChunk, type CommandBuffer, type System } from "@rbxts/ecs";
 import {
+	AimLimits,
 	FireRequest,
 	ShootAtPlayerVessel,
 	Shooter,
@@ -7,6 +8,7 @@ import {
 } from "server/worldEcs/components";
 import { getEcs } from "server/worldEcs/ecs";
 import type { ShooterData } from "server/worldEcs/components/Shooter";
+import type { AimLimitsData } from "server/worldEcs/components/AimLimits";
 import type { EntityRef } from "@rbxts/ecs";
 import { HIT_POINT_FACE_ATTR } from "shared/hitPointShared";
 import { getEntityHitPoints, type RegisteredHitPoint } from "server/worldEcs/hitPointRegistry";
@@ -16,21 +18,51 @@ interface VesselTarget {
 	entity: EntityRef;
 }
 
-function chooseHitPoint(target: VesselTarget, shooterPosition: Vector3): RegisteredHitPoint | undefined {
-	const localPosition = target.model.GetPivot().PointToObjectSpace(shooterPosition);
-	const face =
-		math.abs(localPosition.X) > math.abs(localPosition.Z)
-			? localPosition.X > 0
-				? "starboard"
-				: "port"
-			: localPosition.Z < 0
-				? "bow"
-				: "stern";
-	const all = getEntityHitPoints(target.entity).filter((hitPoint) =>
-		hitPoint.attachment.IsDescendantOf(game.Workspace),
+function isWithinShooterAim(model: Model, position: Vector3, limits: AimLimitsData): boolean {
+	const basePart = model.FindFirstChild("Part");
+	if (basePart === undefined || !basePart.IsA("BasePart")) {
+		return false;
+	}
+	const offset = position.sub(basePart.Position);
+	if (offset.Magnitude < 0.001) {
+		return true;
+	}
+	const localDirection = basePart.CFrame.VectorToObjectSpace(offset.Unit);
+	const yaw = math.atan2(localDirection.X, localDirection.Z);
+	const pitch = math.asin(math.clamp(localDirection.Y, -1, 1));
+	return math.abs(yaw) <= limits.yawLimit && pitch >= limits.pitchMin && pitch <= limits.pitchMax;
+}
+
+function chooseHitPoint(
+	target: VesselTarget,
+	shooterModel: Model,
+	aimLimits: AimLimitsData,
+): RegisteredHitPoint | undefined {
+	const shooterPosition = shooterModel.GetPivot().Position;
+	const hullPoints = getEntityHitPoints(target.entity).filter(
+		(hitPoint) =>
+			hitPoint.attachment.IsDescendantOf(game.Workspace) &&
+			typeIs(hitPoint.attachment.GetAttribute(HIT_POINT_FACE_ATTR), "string"),
 	);
-	const matching = all.filter((hitPoint) => hitPoint.attachment.GetAttribute(HIT_POINT_FACE_ATTR) === face);
-	const candidates = matching.isEmpty() ? all : matching;
+	let closest: RegisteredHitPoint | undefined;
+	let closestDistance = math.huge;
+	for (const hitPoint of hullPoints) {
+		const distance = hitPoint.attachment.WorldPosition.sub(shooterPosition).Magnitude;
+		if (distance < closestDistance) {
+			closest = hitPoint;
+			closestDistance = distance;
+		}
+	}
+	if (closest === undefined) {
+		return undefined;
+	}
+
+	const closestFace = closest.attachment.GetAttribute(HIT_POINT_FACE_ATTR);
+	const candidates = hullPoints.filter(
+		(hitPoint) =>
+			hitPoint.attachment.GetAttribute(HIT_POINT_FACE_ATTR) === closestFace &&
+			isWithinShooterAim(shooterModel, hitPoint.attachment.WorldPosition, aimLimits),
+	);
 	return candidates.isEmpty() ? undefined : candidates[math.random(0, candidates.size() - 1)];
 }
 
@@ -38,7 +70,7 @@ export class ShootAtPlayerVesselSystem implements System {
 	public constructor(private readonly target: VesselTarget) {}
 
 	public getQuery(): Query {
-		return new Query().all(ShootAtPlayerVessel, Shooter, WorldModel);
+		return new Query().all(ShootAtPlayerVessel, Shooter, AimLimits, WorldModel);
 	}
 
 	public tick(chunks: ReadonlyArray<ArchetypeChunk>, commands: CommandBuffer, _dt: number): void {
@@ -46,8 +78,9 @@ export class ShootAtPlayerVesselSystem implements System {
 		for (const chunk of chunks) {
 			const aiComponents = chunk.getComponentArray(ShootAtPlayerVessel);
 			const shooters = chunk.getComponentArray(Shooter);
+			const aimLimits = chunk.getComponentArray(AimLimits);
 			const worldModels = chunk.getComponentArray(WorldModel);
-			if (aiComponents === undefined || shooters === undefined || worldModels === undefined) {
+			if (aiComponents === undefined || shooters === undefined || aimLimits === undefined || worldModels === undefined) {
 				continue;
 			}
 
@@ -67,7 +100,7 @@ export class ShootAtPlayerVesselSystem implements System {
 					continue;
 				}
 
-				const hitPoint = chooseHitPoint(this.target, worldModel.model.GetPivot().Position);
+				const hitPoint = chooseHitPoint(this.target, worldModel.model, aimLimits[index]);
 				const hitPointId = hitPoint?.attachment.GetAttribute("hitPointId");
 				if (typeIs(hitPointId, "string")) {
 					commands.addComponent(entity, FireRequest, { hitPointId });

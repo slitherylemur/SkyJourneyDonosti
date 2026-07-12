@@ -116,7 +116,7 @@ function createCannonEntity(cannonModel: Model, options: CannonOptions): EntityR
 	]);
 
 	if (options.mountable) {
-		ecs.addComponent(entity, Interactable, { promptText: "Man cannon" });
+		ecs.addComponent(entity, Interactable, { promptText: "Defend" });
 		ecs.addComponent(entity, Mountable, { kind: MOUNT_KIND_CANNON });
 	}
 

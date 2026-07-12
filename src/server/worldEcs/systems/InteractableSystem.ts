@@ -2,6 +2,11 @@ import { Query, type ArchetypeChunk, type CommandBuffer, type System } from "@rb
 import { Interactable, Mountable, MountedBy, WorldModel } from "server/worldEcs/components";
 import { getEcs } from "server/worldEcs/ecs";
 import { tryMount } from "server/mounting/mountServer";
+import {
+	CANNON_INDICATOR_DISTANCE,
+	CANNON_INTERACTION_DISTANCE,
+	CUSTOM_CANNON_PROMPT_ATTRIBUTE,
+} from "shared/mountShared";
 
 function findPromptParent(model: Model): BasePart | undefined {
 	const namedPart = model.FindFirstChild("Part");
@@ -47,9 +52,13 @@ export class InteractableSystem implements System {
 
 					const prompt = new Instance("ProximityPrompt");
 					prompt.ActionText = interactable.promptText;
+					prompt.ObjectText = "Cannon";
+					prompt.Style = Enum.ProximityPromptStyle.Default;
 					prompt.RequiresLineOfSight = false;
-					prompt.MaxActivationDistance = 12;
+					prompt.MaxActivationDistance = CANNON_INTERACTION_DISTANCE;
+					prompt.MaxIndicatorDistance = CANNON_INDICATOR_DISTANCE;
 					prompt.HoldDuration = 0;
+					prompt.SetAttribute(CUSTOM_CANNON_PROMPT_ATTRIBUTE, true);
 					prompt.Parent = parent;
 
 					prompt.Triggered.Connect((triggeringPlayer) => {
@@ -59,7 +68,8 @@ export class InteractableSystem implements System {
 					interactable.prompt = prompt;
 				}
 
-				interactable.prompt.Enabled = ecs.getComponent(entity, MountedBy) === undefined;
+				const available = ecs.getComponent(entity, MountedBy) === undefined;
+				interactable.prompt.Enabled = available;
 			}
 		}
 	}

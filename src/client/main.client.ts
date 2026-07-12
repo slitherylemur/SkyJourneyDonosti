@@ -8,6 +8,7 @@ import { startTargeting } from "client/targeting";
 import { initUi } from "client/ui/initUi";
 import { startShipHealthBridge } from "client/ui/shipHealthBridge";
 import { startShipDamageBridge } from "client/ui/shipDamageBridge";
+import { startCannonPromptController } from "client/cannonPromptController";
 
 function bindCharacterPrediction(player: Player): void {
 	if (player.Character !== undefined) {
@@ -24,6 +25,7 @@ startTargeting();
 initUi();
 startShipHealthBridge();
 startShipDamageBridge();
+startCannonPromptController();
 startMountClient();
 registerMountController(MOUNT_KIND_CANNON, cannonMountController);
 
