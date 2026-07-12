@@ -1,7 +1,18 @@
-import { MoveToPoint, PathFollower, PlayerBoat, Velocity, WorldModel } from "server/worldEcs/components";
+import {
+	Health,
+	MoveToPoint,
+	PathFollower,
+	PlayerBoat,
+	RespawnOnDeath,
+	Velocity,
+	WorldModel,
+} from "server/worldEcs/components";
 import { attachEntityToModel, getEcs } from "server/worldEcs/ecs";
 import type { EntityRef } from "@rbxts/ecs";
 import { createPlayerCannonEntity } from "server/worldEcs/factories/cannonFactory";
+import { registerModelHitPoints } from "server/worldEcs/hitPointRegistry";
+import { BOAT_MAX_HEALTH } from "shared/hitPointShared";
+import { HEALTH_ATTRIBUTE, MAX_HEALTH_ATTRIBUTE } from "shared/mountShared";
 import {
 	PLAYER_ARRIVE_DISTANCE,
 	PLAYER_BOAT_ROTATION_SPEED,
@@ -51,13 +62,39 @@ export function createPlayerBoatEntities(playerBoat: Model, waypoints: Vector3[]
 				isPlayerBoat: true,
 			},
 		},
+		{
+			type: Health,
+			data: {
+				current: BOAT_MAX_HEALTH,
+				max: BOAT_MAX_HEALTH,
+			},
+		},
+		{
+			type: RespawnOnDeath,
+			data: {
+				enabled: true,
+			},
+		},
 	]);
 
 	attachEntityToModel(playerBoat, boatEntity);
+	playerBoat.SetAttribute(HEALTH_ATTRIBUTE, BOAT_MAX_HEALTH);
+	playerBoat.SetAttribute(MAX_HEALTH_ATTRIBUTE, BOAT_MAX_HEALTH);
+
+	registerModelHitPoints(playerBoat, "player", [{ entity: boatEntity, multiplier: 1 }], (attachment) => {
+		let ancestor = attachment.Parent;
+		while (ancestor !== undefined && ancestor !== playerBoat) {
+			if (ancestor.IsA("Model") && ancestor.Name === "Cannon") {
+				return false;
+			}
+			ancestor = ancestor.Parent;
+		}
+		return true;
+	});
 
 	for (const descendant of playerBoat.GetDescendants()) {
 		if (descendant.IsA("Model") && descendant.Name === "Cannon") {
-			createPlayerCannonEntity(descendant);
+			createPlayerCannonEntity(descendant, boatEntity);
 		}
 	}
 

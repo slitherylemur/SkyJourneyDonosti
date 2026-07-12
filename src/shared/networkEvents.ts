@@ -9,7 +9,7 @@ export interface ServerToClientEvents {
 /** Client -> server events. Add new networked actions here only. */
 export interface ClientToServerEvents {
 	/** Generic "use the mount" action at a world position (fire, activate, ...). */
-	MountTrigger: (targetPos: Vector3) => void;
+	MountTrigger: (targetPos: Vector3, hitPointId?: string) => void;
 	/** Player requests to leave the mount. */
 	MountExit: () => void;
 }

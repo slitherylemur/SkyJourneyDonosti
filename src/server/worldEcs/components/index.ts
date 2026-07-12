@@ -14,3 +14,6 @@ export * from "./FireRequest";
 export * from "./Projectile";
 export * from "./PlayerRef";
 export * from "./ShootAtPlayerVessel";
+export * from "./HomingProjectile";
+export * from "./RespawnOnDeath";
+export * from "./MovementLock";

@@ -4,7 +4,12 @@ import { Mountable, MountedBy, Mounting, WorldModel } from "server/worldEcs/comp
 import { getEcs } from "server/worldEcs/ecs";
 import { serverEvents } from "shared/network";
 
-export type MountTriggerHandler = (player: Player, mountEntity: EntityRef, targetPos: Vector3) => boolean;
+export type MountTriggerHandler = (
+	player: Player,
+	mountEntity: EntityRef,
+	targetPos: Vector3,
+	hitPointId?: string,
+) => boolean;
 
 const mountTriggerHandlers = new Array<MountTriggerHandler>();
 
@@ -69,8 +74,8 @@ export function unmountPlayer(player: Player): void {
 	serverEvents.fire(player, "Unmount");
 }
 
-function handleMountTrigger(player: Player, targetPos: unknown): void {
-	if (!typeIs(targetPos, "Vector3")) {
+function handleMountTrigger(player: Player, targetPos: unknown, hitPointId: unknown): void {
+	if (!typeIs(targetPos, "Vector3") || (hitPointId !== undefined && !typeIs(hitPointId, "string"))) {
 		return;
 	}
 
@@ -86,7 +91,7 @@ function handleMountTrigger(player: Player, targetPos: unknown): void {
 	}
 
 	for (const handler of mountTriggerHandlers) {
-		if (handler(player, mounting.mountEntity, targetPos)) {
+		if (handler(player, mounting.mountEntity, targetPos, hitPointId)) {
 			return;
 		}
 	}
@@ -97,8 +102,8 @@ export function startMountServer(): void {
 		unmountPlayer(player);
 	});
 
-	serverEvents.on("MountTrigger", (player, targetPos) => {
-		handleMountTrigger(player, targetPos);
+	serverEvents.on("MountTrigger", (player, targetPos, hitPointId) => {
+		handleMountTrigger(player, targetPos, hitPointId);
 	});
 
 	print("[mountServer.ts] Started mount server");

@@ -1,8 +1,6 @@
 import { Query, type ArchetypeChunk, type CommandBuffer, type System } from "@rbxts/ecs";
 import { Players, Workspace } from "@rbxts/services";
-import { Health, Projectile, WorldModel } from "server/worldEcs/components";
-import { getEntityFromInstance, getEcs } from "server/worldEcs/ecs";
-import { PROJECTILE_MIN_DAMAGE_MULTIPLIER } from "shared/mountShared";
+import { Projectile, WorldModel } from "server/worldEcs/components";
 
 function buildRaycastFilter(ignoreInstances: Instance[]): Instance[] {
 	const filter = [...ignoreInstances];
@@ -23,8 +21,6 @@ export class ProjectileSystem implements System {
 	}
 
 	public tick(chunks: ReadonlyArray<ArchetypeChunk>, commands: CommandBuffer, _dt: number): void {
-		const ecs = getEcs();
-
 		for (const chunk of chunks) {
 			const projectiles = chunk.getComponentArray(Projectile);
 			const worldModels = chunk.getComponentArray(WorldModel);
@@ -48,18 +44,6 @@ export class ProjectileSystem implements System {
 
 					const hit = Workspace.Raycast(projectile.lastPosition, delta, raycastParams);
 					if (hit !== undefined) {
-						const hitEntity = getEntityFromInstance(hit.Instance);
-						if (hitEntity !== undefined) {
-							const health = ecs.getComponent(hitEntity, Health);
-							if (health !== undefined) {
-								const falloff = math.max(
-									PROJECTILE_MIN_DAMAGE_MULTIPLIER,
-									1 - projectile.distanceTraveled / projectile.maxRange,
-								);
-								health.current -= projectile.baseDamage * projectile.power * falloff;
-							}
-						}
-
 						model.Destroy();
 						commands.destroyEntity(entity);
 						continue;

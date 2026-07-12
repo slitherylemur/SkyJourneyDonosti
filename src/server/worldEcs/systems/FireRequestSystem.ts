@@ -4,12 +4,14 @@ import { MotionAttributes, REPLICATED_MOTION_TAG } from "shared/serverAuthorityR
 import {
 	AimLimits,
 	FireRequest,
+	HomingProjectile,
 	Projectile,
 	Shooter,
 	Velocity,
 	WorldModel,
 } from "server/worldEcs/components";
 import { attachEntityToModel, findBoatModel, getEcs } from "server/worldEcs/ecs";
+import { getHitPoint } from "server/worldEcs/hitPointRegistry";
 import { clampDirectionWithAimLimits, getMuzzlePosition } from "server/worldEcs/utils/aimUtils";
 import {
 	BARREL_FORWARD_SIGN,
@@ -91,7 +93,12 @@ export class FireRequestSystem implements System {
 				const worldModel = worldModels[index];
 				const entity = chunk.entities[index];
 				const model = worldModel.model;
-				const targetPos = fireRequest.targetPos;
+				const hitPoint = fireRequest.hitPointId !== undefined ? getHitPoint(fireRequest.hitPointId) : undefined;
+				const targetPos = hitPoint?.attachment.WorldPosition ?? fireRequest.targetPos;
+				if (targetPos === undefined) {
+					commands.removeComponent(entity, FireRequest);
+					continue;
+				}
 
 				let direction: Vector3;
 				let muzzlePos: Vector3;
@@ -128,18 +135,7 @@ export class FireRequestSystem implements System {
 					ignoreInstances.push(boatModel);
 				}
 
-				const projectileEntity = ecs.createEntity([
-					{
-						type: Projectile,
-						data: {
-							baseDamage: PROJECTILE_BASE_DAMAGE,
-							power: shooter.power,
-							distanceTraveled: 0,
-							maxRange: PROJECTILE_MAX_RANGE,
-							lastPosition: muzzlePos,
-							ignoreInstances,
-						},
-					},
+				const sharedComponents = [
 					{
 						type: Velocity,
 						data: {
@@ -153,7 +149,33 @@ export class FireRequestSystem implements System {
 							radius: 1,
 						},
 					},
-				]);
+				];
+				const projectileEntity =
+					hitPoint !== undefined && fireRequest.hitPointId !== undefined
+						? ecs.createEntity([
+								...sharedComponents,
+								{
+									type: HomingProjectile,
+									data: {
+										hitPointId: fireRequest.hitPointId,
+										attachment: hitPoint.attachment,
+										speed: PROJECTILE_SPEED,
+										damage: PROJECTILE_BASE_DAMAGE * shooter.power,
+									},
+								},
+							])
+						: ecs.createEntity([
+								...sharedComponents,
+								{
+									type: Projectile,
+									data: {
+										distanceTraveled: 0,
+										maxRange: PROJECTILE_MAX_RANGE,
+										lastPosition: muzzlePos,
+										ignoreInstances,
+									},
+								},
+							]);
 
 				attachEntityToModel(projectileModel, projectileEntity);
 				shooter.lastFiredAt = os.clock();

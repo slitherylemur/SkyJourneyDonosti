@@ -1,31 +1,11 @@
 import type { MountController } from "client/mountController";
 import { Players, RunService, UserInputService, Workspace } from "@rbxts/services";
 import { clientEvents } from "shared/network";
-import {
-	AIM_PITCH_MAX_ATTRIBUTE,
-	AIM_PITCH_MIN_ATTRIBUTE,
-	AIM_YAW_LIMIT_ATTRIBUTE,
-} from "shared/mountShared";
+import { clampAimDirection, getAimLimits } from "shared/aimLimits";
+import { getTargetAttachment, resolveClickTarget, setTargetingMount } from "client/targeting";
 
 const AIM_SENSITIVITY = 0.005;
 const FIRE_RAY_DISTANCE = 1000;
-
-function getNumberAttribute(instance: Instance, name: string, fallback: number): number {
-	const value = instance.GetAttribute(name);
-	return typeIs(value, "number") ? value : fallback;
-}
-
-function clampDirection(basePart: BasePart, yaw: number, pitch: number, yawLimit: number, pitchMin: number, pitchMax: number): Vector3 {
-	const clampedYaw = math.clamp(yaw, -yawLimit, yawLimit);
-	const clampedPitch = math.clamp(pitch, pitchMin, pitchMax);
-	const localDirection = new Vector3(
-		math.sin(clampedYaw) * math.cos(clampedPitch),
-		math.sin(clampedPitch),
-		math.cos(clampedYaw) * math.cos(clampedPitch),
-	);
-
-	return basePart.CFrame.VectorToWorldSpace(localDirection).Unit;
-}
 
 function findBoatModel(model: Model): Model | undefined {
 	let current: Instance | undefined = model;
@@ -68,6 +48,7 @@ class CannonMountController implements MountController {
 		this.basePart = basePart;
 		this.yaw = 0;
 		this.pitch = 0;
+		setTargetingMount(mountModel);
 
 		const camera = Workspace.CurrentCamera;
 		if (camera !== undefined) {
@@ -117,6 +98,7 @@ class CannonMountController implements MountController {
 		this.mountModel = undefined;
 		this.cameraPart = undefined;
 		this.basePart = undefined;
+		setTargetingMount(undefined);
 	}
 
 	private updateCamera(): void {
@@ -128,10 +110,7 @@ class CannonMountController implements MountController {
 			return;
 		}
 
-		const yawLimit = getNumberAttribute(mountModel, AIM_YAW_LIMIT_ATTRIBUTE, math.rad(60));
-		const pitchMin = getNumberAttribute(mountModel, AIM_PITCH_MIN_ATTRIBUTE, math.rad(-5));
-		const pitchMax = getNumberAttribute(mountModel, AIM_PITCH_MAX_ATTRIBUTE, math.rad(45));
-		const worldDirection = clampDirection(basePart, this.yaw, this.pitch, yawLimit, pitchMin, pitchMax);
+		const worldDirection = clampAimDirection(basePart, this.yaw, this.pitch, getAimLimits(mountModel));
 
 		camera.CFrame = CFrame.lookAt(cameraPart.Position, cameraPart.Position.add(worldDirection));
 	}
@@ -141,6 +120,15 @@ class CannonMountController implements MountController {
 		const camera = Workspace.CurrentCamera;
 		if (mountModel === undefined || camera === undefined) {
 			return;
+		}
+
+		const hitPointId = resolveClickTarget(screenPosition);
+		if (hitPointId !== undefined) {
+			const attachment = getTargetAttachment(hitPointId);
+			if (attachment !== undefined) {
+				clientEvents.fire("MountTrigger", attachment.WorldPosition, hitPointId);
+				return;
+			}
 		}
 
 		const screenRay = camera.ScreenPointToRay(screenPosition.X, screenPosition.Y);

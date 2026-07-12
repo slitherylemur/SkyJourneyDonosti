@@ -7,7 +7,10 @@ import {
 	Shooter,
 	WorldModel,
 } from "server/worldEcs/components";
+import type { EntityRef } from "@rbxts/ecs";
 import { attachEntityToModel, getEcs } from "server/worldEcs/ecs";
+import { registerModelHitPoints } from "server/worldEcs/hitPointRegistry";
+import { SHIP_HIT_SHARE } from "shared/hitPointShared";
 import {
 	AIM_PITCH_MAX_ATTRIBUTE,
 	AIM_PITCH_MIN_ATTRIBUTE,
@@ -73,9 +76,9 @@ function stampCannonAttributes(cannonModel: Model, health: number, mountable: bo
 	cannonModel.SetAttribute(MAX_HEALTH_ATTRIBUTE, health);
 }
 
-function createCannonEntity(cannonModel: Model, options: CannonOptions): void {
+function createCannonEntity(cannonModel: Model, options: CannonOptions): EntityRef | undefined {
 	if (!validateCannonModel(cannonModel, options.mountable)) {
-		return;
+		return undefined;
 	}
 
 	const ecs = getEcs();
@@ -123,24 +126,35 @@ function createCannonEntity(cannonModel: Model, options: CannonOptions): void {
 
 	attachEntityToModel(cannonModel, entity);
 	stampCannonAttributes(cannonModel, options.health, options.mountable);
+	return entity;
 }
 
-export function createPlayerCannonEntity(cannonModel: Model): void {
-	createCannonEntity(cannonModel, {
+export function createPlayerCannonEntity(cannonModel: Model, boatEntity: EntityRef): EntityRef | undefined {
+	const cannonEntity = createCannonEntity(cannonModel, {
 		health: CANNON_MAX_HEALTH,
 		mountable: true,
 		shootAtPlayerVessel: false,
 	});
+	if (cannonEntity !== undefined) {
+		registerModelHitPoints(cannonModel, "player", [
+			{ entity: cannonEntity, multiplier: 1 },
+			{ entity: boatEntity, multiplier: SHIP_HIT_SHARE },
+		]);
+	}
+	return cannonEntity;
 }
 
 export function createMapCannonEntities(map: Model): void {
 	for (const descendant of map.GetDescendants()) {
 		if (descendant.IsA("Model") && descendant.Name === "Cannon") {
-			createCannonEntity(descendant, {
+			const entity = createCannonEntity(descendant, {
 				health: MAP_CANNON_MAX_HEALTH,
 				mountable: false,
 				shootAtPlayerVessel: true,
 			});
+			if (entity !== undefined) {
+				registerModelHitPoints(descendant, "enemy", [{ entity, multiplier: 1 }]);
+			}
 		}
 	}
 }

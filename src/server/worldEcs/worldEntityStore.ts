@@ -1,6 +1,5 @@
 import { CollectionService, RunService } from "@rbxts/services";
 import { MotionAttributes, REPLICATED_MOTION_TAG } from "shared/serverAuthorityReplicatedMotion";
-import { Velocity } from "server/worldEcs/components";
 import { createPlayerBoatEntities } from "server/worldEcs/factories/playerBoatFactory";
 import { createMapCannonEntities } from "server/worldEcs/factories/cannonFactory";
 import { getEcs } from "server/worldEcs/ecs";
@@ -11,6 +10,7 @@ import { FireRequestSystem } from "server/worldEcs/systems/FireRequestSystem";
 import { ProjectileSystem } from "server/worldEcs/systems/ProjectileSystem";
 import { HealthSystem } from "server/worldEcs/systems/HealthSystem";
 import { ShootAtPlayerVesselSystem } from "server/worldEcs/systems/ShootAtPlayerVesselSystem";
+import { HomingProjectileSystem } from "server/worldEcs/systems/HomingProjectileSystem";
 import {
 	MAP_MODEL_NAME,
 	PLAYER_BOAT_MODEL_NAME,
@@ -64,10 +64,11 @@ export function startWorldEntityStore(): void {
 	ecsSystem.registerSystem(
 		new ShootAtPlayerVesselSystem({
 			model: playerBoat,
-			getVelocity: () => ecsSystem.getComponent(boatEntity, Velocity)?.value ?? new Vector3(0, 0, 0),
+			entity: boatEntity,
 		}),
 	);
 	ecsSystem.registerSystem(new FireRequestSystem());
+	ecsSystem.registerSystem(new HomingProjectileSystem());
 	ecsSystem.registerSystem(new ProjectileSystem());
 	ecsSystem.registerSystem(new HealthSystem());
 

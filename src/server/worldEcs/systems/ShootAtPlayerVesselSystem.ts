@@ -7,18 +7,31 @@ import {
 } from "server/worldEcs/components";
 import { getEcs } from "server/worldEcs/ecs";
 import type { ShooterData } from "server/worldEcs/components/Shooter";
-import { PROJECTILE_SPEED } from "shared/mountShared";
+import type { EntityRef } from "@rbxts/ecs";
+import { HIT_POINT_FACE_ATTR } from "shared/hitPointShared";
+import { getEntityHitPoints, type RegisteredHitPoint } from "server/worldEcs/hitPointRegistry";
 
 interface VesselTarget {
 	model: Model;
-	getVelocity: () => Vector3;
+	entity: EntityRef;
 }
 
-function predictTargetPosition(shooterModel: Model, target: VesselTarget): Vector3 {
-	const shooterPosition = shooterModel.GetPivot().Position;
-	const targetPosition = target.model.GetPivot().Position;
-	const travelTime = targetPosition.sub(shooterPosition).Magnitude / PROJECTILE_SPEED;
-	return targetPosition.add(target.getVelocity().mul(travelTime));
+function chooseHitPoint(target: VesselTarget, shooterPosition: Vector3): RegisteredHitPoint | undefined {
+	const localPosition = target.model.GetPivot().PointToObjectSpace(shooterPosition);
+	const face =
+		math.abs(localPosition.X) > math.abs(localPosition.Z)
+			? localPosition.X > 0
+				? "starboard"
+				: "port"
+			: localPosition.Z < 0
+				? "bow"
+				: "stern";
+	const all = getEntityHitPoints(target.entity).filter((hitPoint) =>
+		hitPoint.attachment.IsDescendantOf(game.Workspace),
+	);
+	const matching = all.filter((hitPoint) => hitPoint.attachment.GetAttribute(HIT_POINT_FACE_ATTR) === face);
+	const candidates = matching.isEmpty() ? all : matching;
+	return candidates.isEmpty() ? undefined : candidates[math.random(0, candidates.size() - 1)];
 }
 
 export class ShootAtPlayerVesselSystem implements System {
@@ -54,9 +67,11 @@ export class ShootAtPlayerVesselSystem implements System {
 					continue;
 				}
 
-				commands.addComponent(entity, FireRequest, {
-					targetPos: predictTargetPosition(worldModel.model, this.target),
-				});
+				const hitPoint = chooseHitPoint(this.target, worldModel.model.GetPivot().Position);
+				const hitPointId = hitPoint?.attachment.GetAttribute("hitPointId");
+				if (typeIs(hitPointId, "string")) {
+					commands.addComponent(entity, FireRequest, { hitPointId });
+				}
 			}
 		}
 	}

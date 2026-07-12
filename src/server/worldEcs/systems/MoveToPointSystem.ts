@@ -1,6 +1,8 @@
 import { Query, type ArchetypeChunk, type CommandBuffer, type System } from "@rbxts/ecs";
 import { MotionAttributes } from "shared/serverAuthorityReplicatedMotion";
 import { MoveToPoint, Velocity, WorldModel } from "server/worldEcs/components";
+import { MovementLock } from "server/worldEcs/components";
+import { getEcs } from "server/worldEcs/ecs";
 import type { MoveToPointData } from "server/worldEcs/components/MoveToPoint";
 import type { VelocityData } from "server/worldEcs/components/Velocity";
 import { DEFAULT_FACING, horizontalMagnitude, horizontalUnitOr } from "server/worldEcs/utils/vectorUtils";
@@ -29,7 +31,8 @@ export class MoveToPointSystem implements System {
 		return new Query().all(MoveToPoint, Velocity, WorldModel);
 	}
 
-	public tick(chunks: ReadonlyArray<ArchetypeChunk>, _commands: CommandBuffer, dt: number): void {
+	public tick(chunks: ReadonlyArray<ArchetypeChunk>, commands: CommandBuffer, dt: number): void {
+		const ecs = getEcs();
 		for (const chunk of chunks) {
 			const movers = chunk.getComponentArray(MoveToPoint);
 			const velocities = chunk.getComponentArray(Velocity);
@@ -39,6 +42,16 @@ export class MoveToPointSystem implements System {
 			}
 
 			for (let index = 0; index < chunk.size(); index++) {
+				const entity = chunk.entities[index];
+				const lock = ecs.getComponent(entity, MovementLock);
+				if (lock !== undefined) {
+					if (os.clock() < lock.until) {
+						velocities[index].value = Vector3.zero;
+						models[index].model.SetAttribute(MotionAttributes.Velocity, Vector3.zero);
+						continue;
+					}
+					commands.removeComponent(entity, MovementLock);
+				}
 				this.tickMover(movers[index], velocities[index], models[index].model, dt);
 			}
 		}

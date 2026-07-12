@@ -19,6 +19,5 @@ export const CANNON_AI_MAX_RANGE = 300;
 export const PROJECTILE_SPEED = 120;
 export const PROJECTILE_BASE_DAMAGE = 25;
 export const PROJECTILE_MAX_RANGE = 400;
-export const PROJECTILE_MIN_DAMAGE_MULTIPLIER = 0.2;
 /** The cannon mesh's muzzle points along its local +Z axis. */
 export const BARREL_FORWARD_SIGN = 1;
