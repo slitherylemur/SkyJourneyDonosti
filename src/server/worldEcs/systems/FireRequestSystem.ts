@@ -52,10 +52,10 @@ function resolveCannonRig(model: Model): CannonRig | undefined {
 function createProjectileModel(position: Vector3): Model {
 	const part = new Instance("Part");
 	part.Name = "ProjectilePart";
-	part.Size = new Vector3(1.5, 1.5, 1.5);
+	part.Size = new Vector3(3, 3, 3);
 	part.Shape = Enum.PartType.Ball;
-	part.Material = Enum.Material.Neon;
-	part.Color = new Color3(1, 0.8, 0.2);
+	part.Material = Enum.Material.Metal;
+	part.Color = new Color3(0.02, 0.02, 0.02);
 	part.Anchored = true;
 	part.CanCollide = false;
 	part.CanQuery = false;
@@ -159,6 +159,7 @@ export class FireRequestSystem implements System {
 									data: {
 										hitPointId: fireRequest.hitPointId,
 										attachment: hitPoint.attachment,
+										attackerPosition: muzzlePos,
 										speed: PROJECTILE_SPEED,
 										damage: PROJECTILE_BASE_DAMAGE * shooter.power,
 									},

@@ -1,7 +1,8 @@
 import type { EntityRef } from "@rbxts/ecs";
-import { CollectionService, HttpService } from "@rbxts/services";
-import { Health } from "server/worldEcs/components";
+import { CollectionService, HttpService, Players } from "@rbxts/services";
+import { Health, PlayerBoat } from "server/worldEcs/components";
 import { getEcs } from "server/worldEcs/ecs";
+import { serverEvents } from "shared/network";
 import {
 	HIT_POINT_ID_ATTR,
 	HIT_POINT_NAME,
@@ -87,7 +88,7 @@ export function registerModelHitPoints(
 	return registered;
 }
 
-export function applyHitPointDamage(id: string, rawDamage: number): void {
+export function applyHitPointDamage(id: string, rawDamage: number, attackerPosition?: Vector3): void {
 	const hitPoint = hitPoints.get(id);
 	if (hitPoint === undefined || !hitPoint.attachment.IsDescendantOf(game)) {
 		return;
@@ -100,7 +101,14 @@ export function applyHitPointDamage(id: string, rawDamage: number): void {
 		}
 		const health = ecs.getComponent(link.entity, Health);
 		if (health !== undefined && health.current > 0) {
+			const previousHealth = health.current;
 			health.current = math.max(0, health.current - rawDamage * link.multiplier);
+			if (health.current < previousHealth && ecs.getComponent(link.entity, PlayerBoat) !== undefined) {
+				const directionSource = attackerPosition ?? hitPoint.attachment.WorldPosition;
+				for (const player of Players.GetPlayers()) {
+					serverEvents.fire(player, "ShipDamage", directionSource);
+				}
+			}
 		}
 	}
 }

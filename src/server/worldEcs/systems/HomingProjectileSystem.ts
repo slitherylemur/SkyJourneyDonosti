@@ -29,7 +29,7 @@ export class HomingProjectileSystem implements System {
 
 				const toTarget = projectile.attachment.WorldPosition.sub(model.GetPivot().Position);
 				if (toTarget.Magnitude <= projectile.speed * dt + 1) {
-					applyHitPointDamage(projectile.hitPointId, projectile.damage);
+					applyHitPointDamage(projectile.hitPointId, projectile.damage, projectile.attackerPosition);
 					model.Destroy();
 					commands.destroyEntity(entity);
 					continue;

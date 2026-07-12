@@ -9,7 +9,7 @@ type ClientToServerHandler<K extends ClientToServerEventName> = (
 	...args: Parameters<ClientToServerEvents[K]>
 ) => void;
 
-const serverToClientEventNames: ServerToClientEventName[] = ["Mount", "Unmount"];
+const serverToClientEventNames: ServerToClientEventName[] = ["Mount", "Unmount", "ShipDamage"];
 const clientToServerEventNames: ClientToServerEventName[] = ["MountTrigger", "MountExit"];
 
 const remoteEvents = new Map<string, RemoteEvent>();

@@ -7,6 +7,7 @@ import { setModelPredictionMode, startTaggedPredictionMode } from "shared/simula
 import { startTargeting } from "client/targeting";
 import { initUi } from "client/ui/initUi";
 import { startShipHealthBridge } from "client/ui/shipHealthBridge";
+import { startShipDamageBridge } from "client/ui/shipDamageBridge";
 
 function bindCharacterPrediction(player: Player): void {
 	if (player.Character !== undefined) {
@@ -22,6 +23,7 @@ startTaggedPredictionMode(REPLICATED_MOTION_TAG);
 startTargeting();
 initUi();
 startShipHealthBridge();
+startShipDamageBridge();
 startMountClient();
 registerMountController(MOUNT_KIND_CANNON, cannonMountController);
 

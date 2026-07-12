@@ -3,12 +3,19 @@ export interface UiTarget {
 	attachment: Attachment;
 }
 
+export interface DamageIndicatorState {
+	position: Vector2;
+	rotation: number;
+	sequence: number;
+}
+
 export interface UiState {
 	shipHealth: {
 		current: number;
 		max: number;
 	};
 	targets: UiTarget[];
+	damageIndicator?: DamageIndicatorState;
 }
 
 export interface Store<T> {
@@ -39,4 +46,5 @@ export function createStore<T>(initial: T): Store<T> {
 export const uiStore = createStore<UiState>({
 	shipHealth: { current: 0, max: 1 },
 	targets: [],
+	damageIndicator: undefined,
 });

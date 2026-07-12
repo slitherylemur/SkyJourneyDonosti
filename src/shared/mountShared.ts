@@ -16,7 +16,7 @@ export const CANNON_PITCH_MAX = math.rad(45);
 export const CANNON_MAX_HEALTH = 100;
 export const MAP_CANNON_MAX_HEALTH = 25;
 export const CANNON_AI_MAX_RANGE = 300;
-export const PROJECTILE_SPEED = 120;
+export const PROJECTILE_SPEED = 240;
 export const PROJECTILE_BASE_DAMAGE = 25;
 export const PROJECTILE_MAX_RANGE = 400;
 /** The cannon mesh's muzzle points along its local +Z axis. */

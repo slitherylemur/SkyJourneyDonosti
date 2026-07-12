@@ -4,6 +4,8 @@ export interface ServerToClientEvents {
 	Mount: (mountModel: Model, kind: string) => void;
 	/** Client must stop controlling its current mount. */
 	Unmount: () => void;
+	/** The player vessel lost health; this is the attacker position to point toward. */
+	ShipDamage: (attackerPosition: Vector3) => void;
 }
 
 /** Client -> server events. Add new networked actions here only. */

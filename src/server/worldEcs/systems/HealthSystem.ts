@@ -11,7 +11,7 @@ import {
 } from "server/worldEcs/components";
 import { getEcs } from "server/worldEcs/ecs";
 import { unmountPlayer } from "server/mounting/mountServer";
-import { HEALTH_ATTRIBUTE } from "shared/mountShared";
+import { HEALTH_ATTRIBUTE, MAX_HEALTH_ATTRIBUTE } from "shared/mountShared";
 import { unregisterEntityHitPoints, registerModelHitPoints } from "server/worldEcs/hitPointRegistry";
 import { fireEntityDied } from "server/worldEcs/deathSignal";
 import { BOAT_RESPAWN_LOCK_SECONDS } from "shared/hitPointShared";
@@ -41,6 +41,10 @@ export class HealthSystem implements System {
 				const attributeValue = model.GetAttribute(HEALTH_ATTRIBUTE);
 				if (!typeIs(attributeValue, "number") || attributeValue !== health.current) {
 					model.SetAttribute(HEALTH_ATTRIBUTE, health.current);
+				}
+				const maxAttributeValue = model.GetAttribute(MAX_HEALTH_ATTRIBUTE);
+				if (!typeIs(maxAttributeValue, "number") || maxAttributeValue !== health.max) {
+					model.SetAttribute(MAX_HEALTH_ATTRIBUTE, health.max);
 				}
 
 				if (health.current > 0) {
