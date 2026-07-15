@@ -22,6 +22,11 @@ export interface RegisteredHitPoint {
 	links: HitPointLink[];
 }
 
+export interface HitPointRayMatch {
+	id: string;
+	hitPoint: RegisteredHitPoint;
+}
+
 const hitPoints = new Map<string, RegisteredHitPoint>();
 const entityHitPointIds = new Map<number, Set<string>>();
 
@@ -115,6 +120,37 @@ export function applyHitPointDamage(id: string, rawDamage: number, attackerPosit
 
 export function getHitPoint(id: string): RegisteredHitPoint | undefined {
 	return hitPoints.get(id);
+}
+
+export function findEnemyHitPointAlongRay(
+	origin: Vector3,
+	direction: Vector3,
+	maxRange: number,
+	maxPerpendicularDistance: number,
+): HitPointRayMatch | undefined {
+	if (direction.Magnitude < 0.0001) {
+		return undefined;
+	}
+
+	const unitDirection = direction.Unit;
+	let best: HitPointRayMatch | undefined;
+	let bestPerpendicular = math.huge;
+	for (const [id, hitPoint] of hitPoints) {
+		if (hitPoint.team !== "enemy" || !hitPoint.attachment.IsDescendantOf(game.Workspace)) {
+			continue;
+		}
+		const offset = hitPoint.attachment.WorldPosition.sub(origin);
+		const along = offset.Dot(unitDirection);
+		if (along <= 0 || along > maxRange) {
+			continue;
+		}
+		const perpendicular = offset.sub(unitDirection.mul(along)).Magnitude;
+		if (perpendicular <= maxPerpendicularDistance && perpendicular < bestPerpendicular) {
+			bestPerpendicular = perpendicular;
+			best = { id, hitPoint };
+		}
+	}
+	return best;
 }
 
 export function getEntityHitPoints(entity: EntityRef): RegisteredHitPoint[] {

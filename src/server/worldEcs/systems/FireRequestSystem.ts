@@ -1,22 +1,15 @@
 import { Query, type ArchetypeChunk, type CommandBuffer, type System } from "@rbxts/ecs";
-import { CollectionService } from "@rbxts/services";
-import { MotionAttributes, REPLICATED_MOTION_TAG } from "shared/serverAuthorityReplicatedMotion";
-import {
-	AimLimits,
-	FireRequest,
-	HomingProjectile,
-	Projectile,
-	Shooter,
-	Velocity,
-	WorldModel,
-} from "server/worldEcs/components";
-import { attachEntityToModel, findBoatModel, getEcs } from "server/worldEcs/ecs";
+import { AimLimits, FireRequest, Shooter, WorldModel } from "server/worldEcs/components";
+import { findBoatModel, getEcs } from "server/worldEcs/ecs";
 import { getHitPoint } from "server/worldEcs/hitPointRegistry";
+import { registerProjectileAuthority } from "server/worldEcs/projectileAuthority";
 import { clampDirectionWithAimLimits, getMuzzlePosition } from "server/worldEcs/utils/aimUtils";
+import { createProjectileMotionModel } from "shared/projectileMotion";
 import {
 	BARREL_FORWARD_SIGN,
 	PROJECTILE_BASE_DAMAGE,
 	PROJECTILE_MAX_RANGE,
+	PROJECTILE_ROTATION_SPEED,
 	PROJECTILE_SPEED,
 } from "shared/mountShared";
 
@@ -47,28 +40,6 @@ function resolveCannonRig(model: Model): CannonRig | undefined {
 		barrelPart,
 		barrelWeld,
 	};
-}
-
-function createProjectileModel(position: Vector3): Model {
-	const part = new Instance("Part");
-	part.Name = "ProjectilePart";
-	part.Size = new Vector3(3, 3, 3);
-	part.Shape = Enum.PartType.Ball;
-	part.Material = Enum.Material.Metal;
-	part.Color = new Color3(0.02, 0.02, 0.02);
-	part.Anchored = true;
-	part.CanCollide = false;
-	part.CanQuery = false;
-	part.CanTouch = false;
-
-	const model = new Instance("Model");
-	model.Name = "projectile";
-	part.Parent = model;
-	model.PrimaryPart = part;
-	model.PivotTo(new CFrame(position));
-	model.Parent = game.Workspace;
-
-	return model;
 }
 
 export class FireRequestSystem implements System {
@@ -123,11 +94,12 @@ export class FireRequestSystem implements System {
 					muzzlePos = getMuzzlePosition(rig.barrelPart, BARREL_FORWARD_SIGN);
 				}
 
-				const projectileModel = createProjectileModel(muzzlePos);
-				projectileModel.SetAttribute(MotionAttributes.Velocity, direction.mul(PROJECTILE_SPEED));
-				projectileModel.SetAttribute(MotionAttributes.LookDirection, direction);
-				projectileModel.SetAttribute(MotionAttributes.LockLookDirection, true);
-				CollectionService.AddTag(projectileModel, REPLICATED_MOTION_TAG);
+				const projectileModel = createProjectileMotionModel({
+					position: muzzlePos,
+					direction,
+					speed: PROJECTILE_SPEED,
+					rotationSpeed: PROJECTILE_ROTATION_SPEED,
+				});
 
 				const boatModel = findBoatModel(model);
 				const ignoreInstances = [projectileModel];
@@ -135,50 +107,18 @@ export class FireRequestSystem implements System {
 					ignoreInstances.push(boatModel);
 				}
 
-				const sharedComponents = [
-					{
-						type: Velocity,
-						data: {
-							value: direction.mul(PROJECTILE_SPEED),
-						},
-					},
-					{
-						type: WorldModel,
-						data: {
-							model: projectileModel,
-							radius: 1,
-						},
-					},
-				];
-				const projectileEntity =
-					hitPoint !== undefined && fireRequest.hitPointId !== undefined
-						? ecs.createEntity([
-								...sharedComponents,
-								{
-									type: HomingProjectile,
-									data: {
-										hitPointId: fireRequest.hitPointId,
-										attachment: hitPoint.attachment,
-										attackerPosition: muzzlePos,
-										speed: PROJECTILE_SPEED,
-										damage: PROJECTILE_BASE_DAMAGE * shooter.power,
-									},
-								},
-							])
-						: ecs.createEntity([
-								...sharedComponents,
-								{
-									type: Projectile,
-									data: {
-										distanceTraveled: 0,
-										maxRange: PROJECTILE_MAX_RANGE,
-										lastPosition: muzzlePos,
-										ignoreInstances,
-									},
-								},
-							]);
-
-				attachEntityToModel(projectileModel, projectileEntity);
+				registerProjectileAuthority({
+					model: projectileModel,
+					direction,
+					position: muzzlePos,
+					speed: PROJECTILE_SPEED,
+					rotationSpeed: PROJECTILE_ROTATION_SPEED,
+					damage: PROJECTILE_BASE_DAMAGE * shooter.power,
+					maxRange: PROJECTILE_MAX_RANGE,
+					ignoreInstances,
+					hitPointId: fireRequest.hitPointId,
+					hitPoint,
+				});
 				shooter.lastFiredAt = os.clock();
 				commands.removeComponent(entity, FireRequest);
 			}

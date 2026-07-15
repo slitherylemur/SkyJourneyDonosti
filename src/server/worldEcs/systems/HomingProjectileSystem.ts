@@ -35,9 +35,9 @@ export class HomingProjectileSystem implements System {
 					continue;
 				}
 
-				const velocity = toTarget.Unit.mul(projectile.speed);
-				model.SetAttribute(MotionAttributes.Velocity, velocity);
-				model.SetAttribute(MotionAttributes.LookDirection, toTarget.Unit);
+				model.SetAttribute(MotionAttributes.Speed, projectile.speed);
+				model.SetAttribute(MotionAttributes.Direction, toTarget.Unit);
+				model.SetAttribute(MotionAttributes.RotationSpeed, projectile.rotationSpeed);
 			}
 		}
 	}

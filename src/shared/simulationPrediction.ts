@@ -6,10 +6,10 @@ export function setModelPredictionMode(model: Model): void {
 	}
 
 	RunService.SetPredictionMode(model, Enum.PredictionMode.On);
-	for (const descendant of model.GetDescendants()) {
-		if (descendant.IsA("BasePart")) {
-			RunService.SetPredictionMode(descendant, Enum.PredictionMode.On);
-		}
+
+	const root = model.PrimaryPart ?? model.FindFirstChild("HumanoidRootPart") ?? model.FindFirstChild("primary");
+	if (root !== undefined && root.IsA("BasePart")) {
+		RunService.SetPredictionMode(root, Enum.PredictionMode.On);
 	}
 }
 
@@ -31,8 +31,8 @@ function preparePrimaryPart(model: Model): void {
 
 function setTaggedInstancePredictionMode(instance: Instance): void {
 	if (instance.IsA("Model")) {
-		preparePrimaryPart(instance);
 		setModelPredictionMode(instance);
+		preparePrimaryPart(instance);
 	}
 }
 

@@ -6,6 +6,7 @@ export interface HomingProjectileData {
 	/** Where the attacker fired from, used for directional damage feedback. */
 	attackerPosition: Vector3;
 	speed: number;
+	rotationSpeed: number;
 	damage: number;
 }
 

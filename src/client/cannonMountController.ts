@@ -1,8 +1,9 @@
 import type { MountController } from "client/mountController";
 import { Players, RunService, UserInputService, Workspace } from "@rbxts/services";
-import { clientEvents } from "shared/network";
 import { TweenService } from "@rbxts/services";
 import { getAimLimits } from "shared/aimLimits";
+import { setLocalProjectileFire } from "shared/projectileInput";
+import { setProjectileSimulationMount } from "shared/projectileSimulation";
 import { getTargetAttachment, resolveClickTarget, setTargetingMount } from "client/targeting";
 import { uiStore } from "client/ui/store";
 
@@ -25,7 +26,11 @@ function directionFromAngles(basePart: BasePart, yaw: number, pitch: number): Ve
 	return basePart.CFrame.VectorToWorldSpace(localDirection).Unit;
 }
 
-function anglesFromWorldPosition(basePart: BasePart, origin: Vector3, worldPosition: Vector3): [number, number] | undefined {
+function anglesFromWorldPosition(
+	basePart: BasePart,
+	origin: Vector3,
+	worldPosition: Vector3,
+): [number, number] | undefined {
 	const offset = worldPosition.sub(origin);
 	if (offset.Magnitude < 0.001) {
 		return undefined;
@@ -59,6 +64,7 @@ class CannonMountController implements MountController {
 	private renderConnection?: RBXScriptConnection;
 	private lookConnection?: RBXScriptConnection;
 	private fireConnection?: RBXScriptConnection;
+	private fireReleaseConnection?: RBXScriptConnection;
 
 	public enter(mountModel: Model): void {
 		const cameraPart = mountModel.FindFirstChild("cameraPart");
@@ -74,6 +80,7 @@ class CannonMountController implements MountController {
 		}
 
 		this.mountModel = mountModel;
+		setProjectileSimulationMount(Players.LocalPlayer, mountModel);
 		this.cameraPart = cameraPart;
 		this.basePart = basePart;
 		this.yaw = 0;
@@ -98,7 +105,10 @@ class CannonMountController implements MountController {
 		});
 
 		this.lookConnection = UserInputService.InputChanged.Connect((input) => {
-			if (input.UserInputType === Enum.UserInputType.MouseMovement || input.UserInputType === Enum.UserInputType.Touch) {
+			if (
+				input.UserInputType === Enum.UserInputType.MouseMovement ||
+				input.UserInputType === Enum.UserInputType.Touch
+			) {
 				this.yaw -= input.Delta.X * AIM_SENSITIVITY;
 				this.pitch -= input.Delta.Y * AIM_SENSITIVITY;
 			}
@@ -110,9 +120,18 @@ class CannonMountController implements MountController {
 			}
 
 			if (input.UserInputType === Enum.UserInputType.MouseButton1) {
-				this.fire(UserInputService.GetMouseLocation());
+				this.fire(UserInputService.GetMouseLocation(), false);
 			} else if (input.UserInputType === Enum.UserInputType.Touch) {
-				this.fire(new Vector2(input.Position.X, input.Position.Y));
+				this.fire(new Vector2(input.Position.X, input.Position.Y), true);
+			}
+		});
+
+		this.fireReleaseConnection = UserInputService.InputEnded.Connect((input) => {
+			if (
+				input.UserInputType === Enum.UserInputType.MouseButton1 ||
+				input.UserInputType === Enum.UserInputType.Touch
+			) {
+				setLocalProjectileFire(Vector3.zero, false, false);
 			}
 		});
 	}
@@ -121,9 +140,13 @@ class CannonMountController implements MountController {
 		this.renderConnection?.Disconnect();
 		this.lookConnection?.Disconnect();
 		this.fireConnection?.Disconnect();
+		this.fireReleaseConnection?.Disconnect();
 		this.renderConnection = undefined;
 		this.lookConnection = undefined;
 		this.fireConnection = undefined;
+		this.fireReleaseConnection = undefined;
+		setLocalProjectileFire(Vector3.zero, false, false);
+		setProjectileSimulationMount(Players.LocalPlayer, undefined);
 
 		const camera = Workspace.CurrentCamera;
 		if (camera !== undefined) {
@@ -197,44 +220,55 @@ class CannonMountController implements MountController {
 		return bestAngles;
 	}
 
-	private fire(screenPosition: Vector2): void {
+	private fire(screenPosition: Vector2, includeGuiInset: boolean): void {
 		const mountModel = this.mountModel;
 		const camera = Workspace.CurrentCamera;
 		if (mountModel === undefined || camera === undefined) {
 			return;
 		}
 
-		const hitPointId = resolveClickTarget(screenPosition);
+		let targeted = false;
+		let targetPos: Vector3 | undefined;
+		const hitPointId = resolveClickTarget(screenPosition, includeGuiInset);
 		if (hitPointId !== undefined) {
 			const attachment = getTargetAttachment(hitPointId);
 			if (attachment !== undefined) {
-				clientEvents.fire("MountTrigger", attachment.WorldPosition, hitPointId);
-				return;
+				targetPos = attachment.WorldPosition;
+				targeted = true;
 			}
 		}
 
-		const screenRay = camera.ScreenPointToRay(screenPosition.X, screenPosition.Y);
-		const origin = screenRay.Origin;
-		const direction = screenRay.Direction.mul(FIRE_RAY_DISTANCE);
-		const raycastParams = new RaycastParams();
-		raycastParams.FilterType = Enum.RaycastFilterType.Exclude;
+		if (targetPos === undefined) {
+			const screenRay = camera.ScreenPointToRay(screenPosition.X, screenPosition.Y);
+			const origin = screenRay.Origin;
+			const rayDirection = screenRay.Direction.mul(FIRE_RAY_DISTANCE);
+			const raycastParams = new RaycastParams();
+			raycastParams.FilterType = Enum.RaycastFilterType.Exclude;
 
-		const filter = [mountModel];
-		const boatModel = findBoatModel(mountModel);
-		if (boatModel !== undefined) {
-			filter.push(boatModel);
+			const filter = [mountModel];
+			const boatModel = findBoatModel(mountModel);
+			if (boatModel !== undefined) {
+				filter.push(boatModel);
+			}
+
+			const character = Players.LocalPlayer.Character;
+			if (character !== undefined) {
+				filter.push(character);
+			}
+			raycastParams.FilterDescendantsInstances = filter;
+
+			const hit = Workspace.Raycast(origin, rayDirection, raycastParams);
+			targetPos = hit !== undefined ? hit.Position : origin.add(rayDirection);
 		}
 
-		const character = Players.LocalPlayer.Character;
-		if (character !== undefined) {
-			filter.push(character);
+		const basePart = this.basePart;
+		if (basePart === undefined) {
+			return;
 		}
-
-		raycastParams.FilterDescendantsInstances = filter;
-
-		const hit = Workspace.Raycast(origin, direction, raycastParams);
-		const targetPos = hit !== undefined ? hit.Position : origin.add(direction);
-		clientEvents.fire("MountTrigger", targetPos);
+		const direction = targetPos.sub(basePart.Position);
+		if (direction.Magnitude > 0.001) {
+			setLocalProjectileFire(direction.Unit, targeted, true);
+		}
 	}
 }
 

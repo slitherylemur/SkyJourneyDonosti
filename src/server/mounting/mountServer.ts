@@ -4,6 +4,7 @@ import { Mountable, MountedBy, Mounting, WorldModel } from "server/worldEcs/comp
 import { getEcs, getEntityFromInstance } from "server/worldEcs/ecs";
 import { onEntityDied } from "server/worldEcs/deathSignal";
 import { serverEvents } from "shared/network";
+import { setProjectileSimulationMount } from "shared/projectileSimulation";
 
 export type MountTriggerHandler = (
 	player: Player,
@@ -48,12 +49,14 @@ export function tryMount(player: Player, mountEntity: EntityRef): boolean {
 		mountEntity,
 		mountModel: worldModel.model,
 	});
+	setProjectileSimulationMount(player, worldModel.model);
 
 	serverEvents.fire(player, "Mount", worldModel.model, mountable.kind);
 	return true;
 }
 
 export function unmountPlayer(player: Player): void {
+	setProjectileSimulationMount(player, undefined);
 	const ecs = getEcs();
 	const playerEntity = getPlayerEntity(player);
 	if (playerEntity === undefined) {
@@ -124,7 +127,6 @@ function unmountRidersOnDeath(entity: EntityRef, model: Model): void {
 
 export function startMountServer(): void {
 	onEntityDied(unmountRidersOnDeath);
-
 
 	serverEvents.on("MountExit", (player) => {
 		unmountPlayer(player);

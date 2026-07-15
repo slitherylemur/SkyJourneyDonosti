@@ -77,7 +77,7 @@ export function setTargetingMount(mount: Model | undefined): void {
 	refreshTargets();
 }
 
-export function resolveClickTarget(screenPosition: Vector2): string | undefined {
+export function resolveClickTarget(screenPosition: Vector2, includeGuiInset: boolean): string | undefined {
 	const camera = Workspace.CurrentCamera;
 	if (camera === undefined) {
 		return undefined;
@@ -86,7 +86,9 @@ export function resolveClickTarget(screenPosition: Vector2): string | undefined 
 	let nearestId: string | undefined;
 	let nearestDistance = math.huge;
 	for (const target of uiStore.get().targets) {
-		const [point, onScreen] = camera.WorldToViewportPoint(target.attachment.WorldPosition);
+		const [point, onScreen] = includeGuiInset
+			? camera.WorldToScreenPoint(target.attachment.WorldPosition)
+			: camera.WorldToViewportPoint(target.attachment.WorldPosition);
 		if (!onScreen) {
 			continue;
 		}

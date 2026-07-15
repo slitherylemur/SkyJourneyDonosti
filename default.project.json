@@ -42,7 +42,13 @@
 		"Workspace": {
 			"$className": "Workspace",
 			"$properties": {
-				"FilteringEnabled": true
+				"AuthorityMode": "Server",
+				"FilteringEnabled": true,
+				"NextGenerationReplication": "Enabled",
+				"PlayerScriptsUseInputActionSystem": "Enabled",
+				"SignalBehavior": "Deferred",
+				"StreamingEnabled": true,
+				"UseFixedSimulation": "Enabled"
 			}
 		},
 		"HttpService": {

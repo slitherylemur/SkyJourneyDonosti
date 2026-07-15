@@ -109,9 +109,9 @@ function ensureView(prompt: ProximityPrompt): PromptView | undefined {
 	gui.Parent = Workspace.CurrentCamera;
 
 	const healthBack = new Instance("Frame");
-	healthBack.AnchorPoint = new Vector2(0.5, 0);
-	healthBack.Position = new UDim2(0.5, 0, 0, 4);
-	healthBack.Size = new UDim2(0, 230, 0, 14);
+	healthBack.AnchorPoint = new Vector2(0.5, 0.5);
+	healthBack.Position = UDim2.fromScale(0.5, 0.5);
+	healthBack.Size = new UDim2(1 / 3, 0, 0, 14);
 	healthBack.BackgroundColor3 = DARK;
 	healthBack.BorderColor3 = WHITE;
 	healthBack.BorderSizePixel = 2;

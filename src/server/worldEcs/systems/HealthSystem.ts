@@ -74,7 +74,7 @@ export class HealthSystem implements System {
 					if (velocity !== undefined) {
 						velocity.value = Vector3.zero;
 					}
-					model.SetAttribute(MotionAttributes.Velocity, Vector3.zero);
+					model.SetAttribute(MotionAttributes.Speed, 0);
 					health.current = health.max;
 					model.SetAttribute(HEALTH_ATTRIBUTE, health.current);
 					commands.addComponent(entity, MovementLock, {

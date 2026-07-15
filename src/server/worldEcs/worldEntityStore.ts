@@ -14,14 +14,10 @@ import { HomingProjectileSystem } from "server/worldEcs/systems/HomingProjectile
 import {
 	MAP_MODEL_NAME,
 	PLAYER_BOAT_MODEL_NAME,
+	PLAYER_BOAT_ROTATION_SPEED,
 	WAYPOINT_NAMES,
 } from "server/worldEcs/utils/constants";
-import {
-	anchorModel,
-	cloneTemplateModel,
-	getWaypoints,
-	replaceWorkspaceModel,
-} from "server/worldEcs/utils/modelUtils";
+import { anchorModel, cloneTemplateModel, getWaypoints, replaceWorkspaceModel } from "server/worldEcs/utils/modelUtils";
 import { DEFAULT_FACING, horizontalUnitOr } from "server/worldEcs/utils/vectorUtils";
 
 export function startWorldEntityStore(): void {
@@ -48,10 +44,12 @@ export function startWorldEntityStore(): void {
 	const startPivot = CFrame.lookAt(start, start.add(facing));
 
 	playerBoat.PivotTo(startPivot);
-	playerBoat.SetAttribute(MotionAttributes.Velocity, new Vector3(0, 0, 0));
-	playerBoat.SetAttribute(MotionAttributes.LookDirection, facing);
-	playerBoat.SetAttribute(MotionAttributes.LockLookDirection, true);
+	playerBoat.SetAttribute(MotionAttributes.Speed, 0);
+	playerBoat.SetAttribute(MotionAttributes.Direction, facing);
+	playerBoat.SetAttribute(MotionAttributes.RotationSpeed, PLAYER_BOAT_ROTATION_SPEED);
+	playerBoat.SetAttribute(MotionAttributes.Enabled, true);
 	playerBoat.SetAttribute(MotionAttributes.CarriesCharacters, true);
+	playerBoat.SetAttribute(MotionAttributes.Id, "playerBoat");
 	CollectionService.AddTag(playerBoat, REPLICATED_MOTION_TAG);
 
 	const boatEntity = createPlayerBoatEntities(playerBoat, waypoints);
