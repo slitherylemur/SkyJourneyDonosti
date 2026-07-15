@@ -15,6 +15,7 @@ import {
 	type ProjectileSpawnEvent,
 	type ProjectileSimulationServerHooks,
 } from "shared/projectileSimulation";
+import { HOMING_TARGET_VALUE_NAME } from "shared/homingProjectileSimulation";
 
 const TARGET_RAY_TOLERANCE = 12;
 
@@ -50,6 +51,16 @@ const hooks: ProjectileSimulationServerHooks = {
 		const target = event.targeted
 			? findEnemyHitPointAlongRay(event.position, event.direction, CANNON_AI_MAX_RANGE, TARGET_RAY_TOLERANCE)
 			: undefined;
+		if (target !== undefined) {
+			const targetValue = event.model.FindFirstChild(HOMING_TARGET_VALUE_NAME);
+			if (targetValue !== undefined && targetValue.IsA("ObjectValue")) {
+				task.defer(() => {
+					if (targetValue.IsDescendantOf(game)) {
+						targetValue.Value = target.hitPoint.attachment;
+					}
+				});
+			}
+		}
 		const ignoreInstances = [event.model];
 		const boat = findBoatModel(event.mount);
 		if (boat !== undefined) {

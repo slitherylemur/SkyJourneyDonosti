@@ -1,4 +1,4 @@
-import { CollectionService, Players, RunService } from "@rbxts/services";
+import { CollectionService, Players, RunService, Workspace } from "@rbxts/services";
 
 export const REPLICATED_MOTION_TAG = "ReplicatedMotion";
 export const MOTION_RIDER_TAG = "MotionRider";
@@ -146,7 +146,7 @@ function carryOccupants(deltaPivot: CFrame): void {
 }
 
 function stepMotionModel(model: Model, dt: number): void {
-	if (!model.IsDescendantOf(game) || !getBooleanAttribute(model, MotionAttributes.Enabled, true)) {
+	if (!model.IsDescendantOf(Workspace) || !getBooleanAttribute(model, MotionAttributes.Enabled, true)) {
 		return;
 	}
 

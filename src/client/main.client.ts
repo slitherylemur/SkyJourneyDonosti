@@ -15,6 +15,8 @@ import { startShipDamageBridge } from "client/ui/shipDamageBridge";
 import { startCannonPromptController } from "client/cannonPromptController";
 import { startFirstPersonController } from "client/firstPersonController";
 import { startProjectileSimulation } from "shared/projectileSimulation";
+import { prepareLocalProjectileInput } from "shared/projectileInput";
+import { HOMING_PROJECTILE_TAG, startHomingProjectileSimulation } from "shared/homingProjectileSimulation";
 
 function bindCharacterPrediction(player: Player): void {
 	if (player.Character !== undefined) {
@@ -28,8 +30,11 @@ function bindCharacterPrediction(player: Player): void {
 
 startTaggedPredictionMode(REPLICATED_MOTION_TAG);
 startTaggedPredictionMode(MOTION_RIDER_TAG);
+startTaggedPredictionMode(HOMING_PROJECTILE_TAG);
 startServerAuthorityReplicatedMotion({ mode: "client" });
+startHomingProjectileSimulation();
 startProjectileSimulation({ mode: "client" });
+prepareLocalProjectileInput();
 startTargeting();
 initUi();
 startShipHealthBridge();

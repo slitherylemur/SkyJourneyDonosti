@@ -2,7 +2,7 @@ import type { MountController } from "client/mountController";
 import { Players, RunService, UserInputService, Workspace } from "@rbxts/services";
 import { TweenService } from "@rbxts/services";
 import { getAimLimits } from "shared/aimLimits";
-import { setLocalProjectileFire } from "shared/projectileInput";
+import { triggerLocalProjectileFire } from "shared/projectileInput";
 import { setProjectileSimulationMount } from "shared/projectileSimulation";
 import { getTargetAttachment, resolveClickTarget, setTargetingMount } from "client/targeting";
 import { uiStore } from "client/ui/store";
@@ -64,7 +64,6 @@ class CannonMountController implements MountController {
 	private renderConnection?: RBXScriptConnection;
 	private lookConnection?: RBXScriptConnection;
 	private fireConnection?: RBXScriptConnection;
-	private fireReleaseConnection?: RBXScriptConnection;
 
 	public enter(mountModel: Model): void {
 		const cameraPart = mountModel.FindFirstChild("cameraPart");
@@ -125,27 +124,15 @@ class CannonMountController implements MountController {
 				this.fire(new Vector2(input.Position.X, input.Position.Y), true);
 			}
 		});
-
-		this.fireReleaseConnection = UserInputService.InputEnded.Connect((input) => {
-			if (
-				input.UserInputType === Enum.UserInputType.MouseButton1 ||
-				input.UserInputType === Enum.UserInputType.Touch
-			) {
-				setLocalProjectileFire(Vector3.zero, false, false);
-			}
-		});
 	}
 
 	public exit(): void {
 		this.renderConnection?.Disconnect();
 		this.lookConnection?.Disconnect();
 		this.fireConnection?.Disconnect();
-		this.fireReleaseConnection?.Disconnect();
 		this.renderConnection = undefined;
 		this.lookConnection = undefined;
 		this.fireConnection = undefined;
-		this.fireReleaseConnection = undefined;
-		setLocalProjectileFire(Vector3.zero, false, false);
 		setProjectileSimulationMount(Players.LocalPlayer, undefined);
 
 		const camera = Workspace.CurrentCamera;
@@ -266,9 +253,10 @@ class CannonMountController implements MountController {
 			return;
 		}
 		const direction = targetPos.sub(basePart.Position);
-		if (direction.Magnitude > 0.001) {
-			setLocalProjectileFire(direction.Unit, targeted, true);
+		if (direction.Magnitude <= 0.001) {
+			return;
 		}
+		triggerLocalProjectileFire(direction.Unit, targeted);
 	}
 }
 

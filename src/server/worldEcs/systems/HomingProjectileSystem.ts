@@ -1,7 +1,6 @@
 import { Query, type ArchetypeChunk, type CommandBuffer, type System } from "@rbxts/ecs";
 import { HomingProjectile, WorldModel } from "server/worldEcs/components";
 import { applyHitPointDamage } from "server/worldEcs/hitPointRegistry";
-import { MotionAttributes } from "shared/serverAuthorityReplicatedMotion";
 
 export class HomingProjectileSystem implements System {
 	public getQuery(): Query {
@@ -34,10 +33,6 @@ export class HomingProjectileSystem implements System {
 					commands.destroyEntity(entity);
 					continue;
 				}
-
-				model.SetAttribute(MotionAttributes.Speed, projectile.speed);
-				model.SetAttribute(MotionAttributes.Direction, toTarget.Unit);
-				model.SetAttribute(MotionAttributes.RotationSpeed, projectile.rotationSpeed);
 			}
 		}
 	}

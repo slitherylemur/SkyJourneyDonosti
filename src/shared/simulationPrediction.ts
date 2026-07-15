@@ -1,4 +1,4 @@
-import { CollectionService, RunService } from "@rbxts/services";
+import { CollectionService, RunService, Workspace } from "@rbxts/services";
 
 export function setModelPredictionMode(model: Model): void {
 	if (!RunService.IsClient()) {
@@ -30,7 +30,7 @@ function preparePrimaryPart(model: Model): void {
 }
 
 function setTaggedInstancePredictionMode(instance: Instance): void {
-	if (instance.IsA("Model")) {
+	if (instance.IsA("Model") && instance.IsDescendantOf(Workspace)) {
 		setModelPredictionMode(instance);
 		preparePrimaryPart(instance);
 	}

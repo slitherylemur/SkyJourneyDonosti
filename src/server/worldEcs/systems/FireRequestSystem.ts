@@ -5,6 +5,7 @@ import { getHitPoint } from "server/worldEcs/hitPointRegistry";
 import { registerProjectileAuthority } from "server/worldEcs/projectileAuthority";
 import { clampDirectionWithAimLimits, getMuzzlePosition } from "server/worldEcs/utils/aimUtils";
 import { createProjectileMotionModel } from "shared/projectileMotion";
+import { HOMING_TARGET_VALUE_NAME } from "shared/homingProjectileSimulation";
 import {
 	BARREL_FORWARD_SIGN,
 	PROJECTILE_BASE_DAMAGE,
@@ -99,7 +100,18 @@ export class FireRequestSystem implements System {
 					direction,
 					speed: PROJECTILE_SPEED,
 					rotationSpeed: PROJECTILE_ROTATION_SPEED,
+					homing: hitPoint !== undefined,
 				});
+				if (projectileModel === undefined) {
+					commands.removeComponent(entity, FireRequest);
+					continue;
+				}
+				if (hitPoint !== undefined) {
+					const targetValue = projectileModel.FindFirstChild(HOMING_TARGET_VALUE_NAME);
+					if (targetValue !== undefined && targetValue.IsA("ObjectValue")) {
+						targetValue.Value = hitPoint.attachment;
+					}
+				}
 
 				const boatModel = findBoatModel(model);
 				const ignoreInstances = [projectileModel];

@@ -18,6 +18,8 @@ interface ProjectileInputBindings {
 	targeted: InputBinding;
 }
 
+let cachedLocalBindings: ProjectileInputBindings | undefined;
+
 function createAction(context: InputContext, name: string, actionType: Enum.InputActionType): void {
 	const action = new Instance("InputAction");
 	action.Name = name;
@@ -76,6 +78,9 @@ export function getProjectileInputActions(player: Player): ProjectileInputAction
 }
 
 function getLocalBindings(): ProjectileInputBindings | undefined {
+	if (cachedLocalBindings !== undefined) {
+		return cachedLocalBindings;
+	}
 	const actions = getProjectileInputActions(Players.LocalPlayer);
 	if (actions === undefined) {
 		return undefined;
@@ -95,20 +100,31 @@ function getLocalBindings(): ProjectileInputBindings | undefined {
 		return undefined;
 	}
 
-	return { fire, aim, targeted };
+	cachedLocalBindings = { fire, aim, targeted };
+	return cachedLocalBindings;
 }
 
-export function setLocalProjectileFire(direction: Vector3, targeted: boolean, pressed: boolean): boolean {
+export function prepareLocalProjectileInput(): void {
+	task.spawn(() => {
+		const context = Players.LocalPlayer.WaitForChild(CONTEXT_NAME, 10);
+		if (context === undefined) {
+			warn("[projectileInput.ts] Timed out waiting for CannonInputContext");
+			return;
+		}
+		getLocalBindings();
+	});
+}
+
+export function triggerLocalProjectileFire(direction: Vector3, targeted: boolean): boolean {
 	const bindings = getLocalBindings();
 	if (bindings === undefined) {
 		warn("[projectileInput.ts] Cannon InputActions are not available yet");
 		return false;
 	}
 
-	if (pressed) {
-		bindings.aim.Fire(direction);
-		bindings.targeted.Fire(targeted);
-	}
-	bindings.fire.Fire(pressed);
+	bindings.aim.Fire(direction);
+	bindings.targeted.Fire(targeted);
+	const currentState = bindings.fire.Parent?.IsA("InputAction") ? bindings.fire.Parent.GetState() : false;
+	bindings.fire.Fire(!(typeIs(currentState, "boolean") && currentState));
 	return true;
 }

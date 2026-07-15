@@ -4,7 +4,7 @@ import { BARREL_FORWARD_SIGN, CANNON_COOLDOWN, PROJECTILE_ROTATION_SPEED, PROJEC
 import { getProjectileInputActions } from "shared/projectileInput";
 import { createProjectileMotionModel } from "shared/projectileMotion";
 
-const FIRE_HELD_ATTRIBUTE = "ProjectileFireHeld";
+const FIRE_STATE_ATTRIBUTE = "ProjectileFireState";
 const FIRE_COOLDOWN_ATTRIBUTE = "ProjectileFireCooldown";
 const INPUT_EPSILON = 0.0001;
 
@@ -35,13 +35,16 @@ export interface ProjectileSimulationOptions {
 
 let started = false;
 const playerMounts = new Map<Player, Model>();
+const playersNeedingInputSync = new Set<Player>();
 
 export function setProjectileSimulationMount(player: Player, mount: Model | undefined): void {
 	if (mount === undefined) {
 		playerMounts.delete(player);
+		playersNeedingInputSync.delete(player);
 		return;
 	}
 	playerMounts.set(player, mount);
+	playersNeedingInputSync.add(player);
 }
 
 function resolveRig(model: Model): ProjectileRig | undefined {
@@ -78,12 +81,6 @@ function getMuzzlePosition(rig: ProjectileRig, direction: Vector3): Vector3 {
 	return pivot.add(direction.mul(BARREL_FORWARD_SIGN * rig.barrelPart.Size.Z * 0.5));
 }
 
-function aimRig(rig: ProjectileRig, direction: Vector3): void {
-	const pivot = rig.basePart.CFrame.mul(rig.barrelWeld.C1).Position;
-	const desired = CFrame.lookAt(pivot, pivot.sub(direction));
-	rig.barrelWeld.C0 = desired.Inverse().mul(rig.basePart.CFrame).mul(rig.barrelWeld.C1);
-}
-
 function getBooleanState(value: unknown): boolean {
 	return typeIs(value, "boolean") && value;
 }
@@ -108,14 +105,19 @@ function stepPlayer(options: ProjectileSimulationOptions, player: Player, dt: nu
 	if (actions === undefined || rig === undefined) {
 		return;
 	}
+	if (playersNeedingInputSync.has(player)) {
+		mount.SetAttribute(FIRE_STATE_ATTRIBUTE, getBooleanState(actions.fire.GetState()));
+		playersNeedingInputSync.delete(player);
+		return;
+	}
 
 	const cooldown = math.max(getCooldown(mount) - dt, 0);
 	setCooldown(mount, cooldown);
 
-	const pressed = getBooleanState(actions.fire.GetState());
-	const wasPressed = mount.GetAttribute(FIRE_HELD_ATTRIBUTE) === true;
-	mount.SetAttribute(FIRE_HELD_ATTRIBUTE, pressed);
-	if (!pressed || wasPressed || cooldown > 0) {
+	const fireState = getBooleanState(actions.fire.GetState());
+	const previousFireState = mount.GetAttribute(FIRE_STATE_ATTRIBUTE) === true;
+	mount.SetAttribute(FIRE_STATE_ATTRIBUTE, fireState);
+	if (fireState === previousFireState || cooldown > 0) {
 		return;
 	}
 
@@ -134,14 +136,17 @@ function stepPlayer(options: ProjectileSimulationOptions, player: Player, dt: nu
 		direction = direction.Unit;
 	}
 
-	aimRig(rig, direction);
 	const position = getMuzzlePosition(rig, direction);
 	const model = createProjectileMotionModel({
 		position,
 		direction,
 		speed: PROJECTILE_SPEED,
 		rotationSpeed: PROJECTILE_ROTATION_SPEED,
+		homing: targeted,
 	});
+	if (model === undefined) {
+		return;
+	}
 	setCooldown(mount, CANNON_COOLDOWN);
 
 	if (options.mode === "server") {
